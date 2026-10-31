@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Event Live</title>
+<meta name="theme-color" content="#f2f4f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121317" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: one 520px column of soft white cards; a live candle chart with the same terminal look as Event */
+:root{
+  --bg:#f2f4f6; --card:#ffffff; --ink:#191f28; --ink2:#4e5968; --ink3:#8b95a1; --line:#e5e8eb; --fill:#f2f4f6; --fill2:#e5e8eb;
+  --blue:#3182f6; --blue-press:#1b64da; --blue-soft:#e8f3ff; --warn-soft:#fff4e0; --stop-soft:#ffeef0;
+  --up:#14945f; --down:#d4473b; --s1:#3182f6; --warn:#f59e0b; --stop:#f04452;
+  --ema1:#d9a400; --ema2:#e0389f; --ema3:#9b6cf0;
+  --font:"Pretendard","Noto Sans KR",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Segoe UI",Roboto,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#121317; --card:#1c1d22; --ink:#f2f3f5; --ink2:#b0b8c1; --ink3:#7e8691; --line:#2c2e35; --fill:#26282e; --fill2:#33363e;
+  --blue:#4c93ff; --blue-press:#3182f6; --blue-soft:#1d2b42; --warn-soft:#3a2f17; --stop-soft:#3d1f24;
+  --up:#2fbf83; --down:#f0675b; --s1:#4c93ff; --ema1:#f0b90b; --ema2:#eb40b5; --ema3:#b385f8; color-scheme:dark;
+}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 var(--font);letter-spacing:-.01em;word-break:keep-all;overflow-wrap:anywhere;-webkit-tap-highlight-color:transparent;padding-top:env(safe-area-inset-top,0px)}
+[hidden]{display:none!important}
+.wrap{max-width:520px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{margin:0;text-wrap:balance}
+p{margin:0}
+button{font:inherit;color:inherit}
+a{color:var(--blue);text-decoration:none}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+header.top{position:sticky;top:0;z-index:20;background:var(--bg)}
+.bar{display:flex;align-items:center;justify-content:space-between;height:54px}
+.brand{font-size:17px;font-weight:700}
+.conn{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--ink3);white-space:nowrap}
+.conn i{width:7px;height:7px;border-radius:50%;background:var(--warn)}
+.conn[data-s="live"] i{background:var(--up)}
+.conn[data-s="error"] i{background:var(--stop)}
+main{display:grid;gap:12px;padding-block:4px calc(110px + env(safe-area-inset-bottom,0px))}
+.head{padding:6px 4px 8px;display:grid;gap:2px}
+.head h1{font-size:26px;font-weight:700;letter-spacing:-.03em}
+.head p{font-size:15px;color:var(--ink3)}
+.card{background:var(--card);border-radius:22px;padding:22px 20px;display:grid;gap:14px;min-width:0}
+.card h2{font-size:18px;font-weight:700;letter-spacing:-.02em}
+.chead{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.cap{font-size:14px;color:var(--ink3);font-weight:500}
+.big{font-size:34px;font-weight:700;letter-spacing:-.03em;line-height:1.15;font-variant-numeric:tabular-nums}
+.sub{font-size:15px;color:var(--ink2)}
+.hint{font-size:13px;color:var(--ink3)}
+.banner{background:var(--blue-soft);border-radius:18px;padding:16px 18px;display:grid;gap:2px}
+.banner b{color:var(--blue);font-size:14px;font-weight:700}
+.banner p{font-size:15px;color:var(--ink)}
+.btn{appearance:none;border:0;border-radius:16px;min-height:54px;padding:0 18px;font:600 17px var(--font);background:var(--blue);color:#fff;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:6px}
+.btn:active{background:var(--blue-press)}
+.btn.sec{background:var(--fill);color:var(--ink2)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.dirs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.dir{border:0;border-radius:16px;min-height:58px;font:700 18px var(--font);color:#fff;cursor:pointer}
+.dir.up{background:var(--up)} .dir.down{background:var(--down)}
+.dir:disabled{opacity:.3;cursor:not-allowed}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--fill2);border-radius:14px;padding:4px;gap:4px}
+.seg button{border:0;background:transparent;border-radius:10px;min-height:38px;font:600 15px var(--font);color:var(--ink3);cursor:pointer}
+.seg button:disabled{opacity:.35;cursor:not-allowed}
+.seg button[aria-pressed="true"]{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+input[type=text],input[type=number],textarea{width:100%;font:500 17px var(--font);color:var(--ink);background:var(--fill);border:0;border-radius:14px;padding:14px 16px;min-width:0}
+textarea{min-height:84px;resize:vertical;line-height:1.5}
+input:focus,textarea:focus{outline:2px solid var(--blue);outline-offset:0}
+::placeholder{color:var(--ink3)}
+input[type=range]{width:100%;accent-color:var(--blue);height:30px;margin:0}
+.fld{display:grid;gap:8px;min-width:0}
+.fld>.lab{font-size:15px;color:var(--ink2);font-weight:600}
+.lr{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.lr .lab{font-size:15px;color:var(--ink2);font-weight:600}
+.lr b{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.nums{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.nums div{display:grid;gap:2px;min-width:0}
+.nums b{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.nums span{font-size:12.5px;color:var(--ink3)}
+.kv{display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:44px;font-size:16px}
+.kv span{color:var(--ink2)}
+.kv b{font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
+.flag{display:flex;align-items:center;gap:12px;text-align:left;background:none;border:0;min-height:44px;font-size:15px;cursor:pointer;color:var(--ink);width:100%}
+.flag:disabled{cursor:default;color:var(--ink3)}
+.check{width:24px;height:24px;border-radius:7px;background:var(--fill2);display:grid;place-items:center;flex:none;color:#fff}
+.check.on{background:var(--blue)}
+.check svg{width:14px;height:14px}
+.tag{font-size:12px;font-weight:600;color:var(--ink3);background:var(--fill);border-radius:6px;padding:1px 6px;margin-left:6px;white-space:nowrap}
+.verdict{border-radius:14px;padding:14px 16px;background:var(--fill);font-size:15px}
+.verdict.wait{background:var(--warn-soft)}
+.verdict.stop{background:var(--stop-soft)}
+.prog{height:8px;background:var(--fill);border-radius:4px;overflow:hidden}
+.prog span{display:block;height:100%;background:var(--blue);border-radius:4px}
+.price{display:flex;align-items:baseline;gap:8px}
+.price b{font-size:28px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.cibar{display:grid;gap:6px}
+.cibar .track{position:relative;height:30px;background:var(--fill);border-radius:10px}
+.cibar .range{position:absolute;top:9px;height:12px;background:var(--s1);opacity:.3;border-radius:6px}
+.cibar .be{position:absolute;top:3px;bottom:3px;width:2px;background:var(--ink);transform:translateX(-1px)}
+.cibar .pt{position:absolute;top:9px;width:12px;height:12px;border-radius:50%;background:var(--s1);border:2px solid var(--card);transform:translateX(-6px)}
+.cibar .ticks{position:relative;height:16px;font-size:12px;color:var(--ink3)}
+.cibar .ticks span{position:absolute;white-space:nowrap}
+.list{display:grid;gap:2px}
+.item{display:flex;align-items:center;gap:12px;min-height:54px}
+.item .grow{flex:1;min-width:0}
+.item .t{font-size:16px;font-weight:500;display:block}
+.item .s{font-size:14px;color:var(--ink3);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--ink2)}
+.legend i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:6px;vertical-align:3px}
+.rulein{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:56px}
+.rulein span{font-size:15px;color:var(--ink2)}
+.rulein input{max-width:110px;text-align:right}
+/* 캔들 차트 (Event와 같은 모양) */
+.chart{width:100%;height:auto;display:block}
+.chart text{font:10px var(--mono);fill:var(--ink3)}
+.chart text.strong{fill:var(--ink2)}
+.chart .grid{stroke:var(--line);stroke-width:1}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--card);border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+nav.tabs .in{max-width:520px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr)}
+nav.tabs button{background:none;border:0;color:var(--ink3);min-height:60px;display:grid;justify-items:center;align-content:center;gap:3px;font-size:11.5px;font-weight:600;cursor:pointer}
+nav.tabs button[aria-current="page"]{color:var(--ink)}
+nav.tabs svg{width:24px;height:24px}
+#tip{position:fixed;z-index:50;pointer-events:none;background:var(--ink);color:var(--card);font-size:13px;line-height:1.45;padding:7px 10px;border-radius:10px;max-width:240px;white-space:pre-line}
+#toast{position:fixed;z-index:45;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--card);font-size:15px;font-weight:500;padding:12px 18px;border-radius:14px;max-width:calc(100% - 32px);text-align:center}
+@media (max-width:380px){.nums{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap bar">
+  <span class="brand">Event Live</span>
+  <span class="conn" id="conn" data-s="connecting"><i></i><span>연결 중</span></span>
+</div></header>
+
+<main id="view" class="wrap"></main>
+
+<nav class="tabs" aria-label="화면"><div class="in">
+  <button data-act="tab" data-tab="train"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18l5-6 4 3 4-7 5 5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>실시간</button>
+  <button data-act="tab" data-tab="log"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V11M11 20V5M17 20v-7M2.5 20h19" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>기록</button>
+  <button data-act="tab" data-tab="rules"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.9"/></svg>규칙</button>
+</div></nav>
+
+<div id="tip" hidden></div>
+<div id="toast" hidden role="status"></div>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- 고정 값 ---------- */
+const EVENT_URL = 'https://claude.ai/artifact/L3pSR6oH3WDKweD9ZYNtw9';
+const OBS_URL = 'https://claude.ai/artifact/H4vfgUDTm5hVduBd59jft9';
+const API = 'https://fapi.binance.com/fapi/v1';
+const WS_URLS = ['wss://fstream.binance.com/market/stream?streams=', 'wss://fstream.binance.com/stream?streams='];
+const BARS = 96, WARM = 300;
+const HZ = { '10m':{ label:'10분', ms:600000 }, '30m':{ label:'30분', ms:1800000 }, '1h':{ label:'1시간', ms:3600000 }, '1d':{ label:'1일', ms:86400000 } };
+const TFS = { '1m':{ label:'1분', ms:60000 }, '5m':{ label:'5분', ms:300000 }, '15m':{ label:'15분', ms:900000 }, '1h':{ label:'1시간', ms:3600000 } };
+const EMAS = [{ n:7, c:'var(--ema1)' }, { n:25, c:'var(--ema2)' }, { n:99, c:'var(--ema3)' }];
+const SYMS = { BTCUSDT:{ label:'BTC', dp:1 }, ETHUSDT:{ label:'ETH', dp:2 } };
+const RULE_DEFAULT = { cap:6, stake:10, payout:0.8, cooldown:30, lossStop:3, profitStop:3 };
+const RULE_LABEL = { cap:'하루 최대 횟수', stake:'1회 금액 (USDT)', payout:'지급 배율', cooldown:'진 뒤 쉬는 시간 (분)', lossStop:'하루 손실 한도 (1회 금액의 몇 배)', profitStop:'하루 이익 멈춤 (1회 금액의 몇 배)' };
+const RED_FLAGS = [
+  { t:'확신이 아주 강하거나 "지금 아니면 못 잡는다"는 느낌' },
+  { t:'손실을 메꿔야 한다는 생각' },
+  { t:'오늘 관심이나 인정을 크게 받았거나 기분이 +3 이상', auto:true },
+  { t:'잠 5시간 이하', auto:true },
+  { t:'밤 11시 ~ 새벽 5시', auto:true },
+  { t:'오늘 이미 졌고, 30분이 지나지 않음', na:true },
+  { t:'직전보다 금액을 키우려는 중', na:true },
+  { t:'오늘 큰 이익이 났음', na:true },
+  { t:'계획에 없던 입금을 하려는 중' }
+];
+const SVG_CHECK = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+/* ---------- 작은 도구 ---------- */
+const $ = (s, el) => (el || document).querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(2, '0');
+const keyOf = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const today = () => keyOf(new Date());
+const iso = () => new Date().toISOString();
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const sum = a => a.reduce((s, v) => s + (+v || 0), 0);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const pct = v => v == null || !isFinite(v) ? '—' : Math.round(v * 100) + '%';
+const pct1 = v => v == null || !isFinite(v) ? '—' : (Math.round(v * 1000) / 10) + '%';
+const chg = v => v == null || !isFinite(v) ? '—' : (v > 0 ? '+' : '') + (Math.round(v * 10000) / 100) + '%';
+const sgn = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(Math.round(v * 10) / 10).toLocaleString('en-US');
+const lsGet = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+const fmtP = (sym, v) => v == null ? '—' : v.toLocaleString('en-US', { minimumFractionDigits:SYMS[sym].dp, maximumFractionDigits:SYMS[sym].dp });
+const hm = ms => { const d = new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const mdhm = ms => { const d = new Date(ms); return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${hm(ms)}`; };
+const durTxt = ms => { const m = Math.max(0, Math.round(ms / 60000)); if (m < 60) return `${m}분`; const h = Math.floor(m / 60); return m % 60 ? `${h}시간 ${m % 60}분` : `${h}시간`; };
+const clock = ms => { const s = Math.max(0, Math.ceil(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h ? `${h}:${pad(m)}:${pad(s % 60)}` : `${m}:${pad(s % 60)}`; };
+function wilson(k, n, z) { z = z || 1.96; const p = k / n, z2 = z * z; const c = (p + z2 / (2 * n)) / (1 + z2 / n), h = z * Math.sqrt(p * (1 - p) / n + z2 / (4 * n * n)) / (1 + z2 / n); return [Math.max(0, c - h), Math.min(1, c + h)]; }
+function ema(vals, n) { const k = 2 / (n + 1); let e = null; return vals.map(v => (e = e == null ? v : v * k + e * (1 - k))); }
+function niceStep(range, n) { const raw = range / n, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p; }
+
+/* ---------- 기록 (이 기기에 저장) ---------- */
+const ST = (() => { const v = lsGet('live.v1'); return v && v.days ? v : { days:{}, rules:{}, pending:null, last:null }; })();
+const save = () => lsSet('live.v1', ST);
+function rules() { const r = Object.assign({}, RULE_DEFAULT, ST.rules || {}); delete r.pending; return r; }
+function day(k) { return ST.days[k] || { check:null, lock:null, cooldownUntil:0, trades:[], urges:[] }; }
+function editDay(k, fn) { const d = ST.days[k] = ST.days[k] || { check:null, lock:null, cooldownUntil:0, trades:[], urges:[] }; fn(d); save(); }
+function allTrades() { return Object.keys(ST.days).sort().flatMap(k => (ST.days[k].trades || []).map(t => Object.assign({ day:k }, t))); }
+function applyPending() {
+  const p = ST.rules && ST.rules.pending; if (!p || Date.now() < p.eff) return;
+  Object.assign(ST.rules, p.changes); delete ST.rules.pending; save(); toast('예약해 둔 규칙 변경이 적용됐어요');
+}
+
+/* ---------- 실시간 시세 ---------- */
+let SEL = lsGet('live.sel') || { sym:'BTCUSDT', hz:'10m' };
+let VTF = TFS[lsGet('live.tf')] ? lsGet('live.tf') : '1m';
+const M = { sym:null, hist:{}, price:null, ws:null, lastMsg:0, urlIdx:0, gen:0 };
+function setConn(s) { const el = $('#conn'); el.dataset.s = s; el.lastElementChild.textContent = { connecting:'연결 중', live:'실시간', reconnect:'다시 연결 중', error:'연결 안 됨' }[s]; }
+async function loadHist(sym, tf) {
+  const r = await fetch(`${API}/klines?symbol=${sym}&interval=${tf}&limit=${BARS + WARM}`);
+  if (!r.ok) throw new Error('klines ' + r.status);
+  const d = await r.json();
+  return d.map(k => ({ t:k[0], o:+k[1], h:+k[2], l:+k[3], c:+k[4], v:+k[5] }));
+}
+async function startMarket(sym) {
+  const gen = ++M.gen; M.sym = sym; M.hist = {}; M.price = null; setConn('connecting'); drawLive();
+  try {
+    const hs = await Promise.all(Object.keys(TFS).map(tf => loadHist(sym, tf)));
+    if (gen !== M.gen) return;
+    Object.keys(TFS).forEach((tf, i) => { M.hist[tf] = hs[i]; });
+    M.price = M.hist['1m'][M.hist['1m'].length - 1].c;
+  } catch (e) { if (gen === M.gen) setConn('error'); }
+  if (gen === M.gen) { openWS(); render(); }
+}
+function openWS() {
+  if (M.ws) { M.ws.onclose = null; try { M.ws.close(); } catch (e) {} }
+  const s = M.sym.toLowerCase(), url = WS_URLS[M.urlIdx % WS_URLS.length] + Object.keys(TFS).map(tf => `${s}@kline_${tf}`).join('/');
+  const ws = new WebSocket(url), opened = Date.now(); M.ws = ws;
+  ws.onmessage = e => {
+    let d; try { d = JSON.parse(e.data); } catch (er) { return; }
+    const k = d.data && d.data.k; if (!k || d.data.s !== M.sym) return;
+    M.lastMsg = Date.now(); setConn('live');
+    upsert(k.i, { t:k.t, o:+k.o, h:+k.h, l:+k.l, c:+k.c, v:+k.v }); M.price = +k.c; scheduleDraw();
+  };
+  ws.onclose = () => { if (M.ws !== ws) return; setConn('reconnect'); setTimeout(() => { if (M.ws === ws) openWS(); }, 2500); };
+  setTimeout(() => { if (M.ws === ws && M.lastMsg < opened) { M.urlIdx++; openWS(); } }, 8000);   // 다른 주소로 다시 시도
+}
+function upsert(tf, c) {
+  const h = M.hist[tf]; if (!h) return;
+  const last = h[h.length - 1];
+  if (last && last.t === c.t) h[h.length - 1] = c;
+  else if (!last || c.t > last.t) { h.push(c); if (h.length > BARS + WARM + 30) h.shift(); }
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { startMarket(SEL.sym); settleIfDue(); } });
+
+/* ---------- 차트 ---------- */
+function liveChart(tf) {
+  const h = M.hist[tf]; if (!h || h.length < 120) return '<p class="sub" style="padding:40px 0;text-align:center">차트를 불러오는 중이에요…</p>';
+  const sym = M.sym, tms = TFS[tf].ms, pend = ST.pending && ST.pending.sym === sym ? ST.pending : null;
+  const em = EMAS.map(e => ema(h.map(k => k.c), e.n).slice(-BARS)), cs = h.slice(-BARS);
+  let futW = Math.round(BARS * 0.12);
+  if (pend) futW = clamp(Math.ceil((pend.expiry - cs[cs.length - 1].t) / tms) + 1, futW, Math.round(BARS * 0.5));
+  const n = BARS + futW;
+  const Wd = 340, Ht = 238, R = 52, Lp = 4, T = 8, PH = 160, G = 10, VH = 34, top2 = T + PH + G;
+  const band = (Wd - Lp - R) / n, bw = Math.max(1, Math.min(8, band * 0.62));
+  let lo = Infinity, hi = -Infinity; cs.forEach(k => { lo = Math.min(lo, k.l); hi = Math.max(hi, k.h); });
+  if (pend) { lo = Math.min(lo, pend.entry); hi = Math.max(hi, pend.entry); }
+  const padv = (hi - lo) * 0.06 || hi * 0.001; lo -= padv; hi += padv;
+  const y = v => T + (hi - v) / (hi - lo) * PH, x = i => Lp + band * i + band / 2, xt = t => Lp + band * ((t - cs[0].t) / tms);
+  const vmax = Math.max(1, ...cs.map(k => k.v));
+  let s = `<svg class="chart" viewBox="0 0 ${Wd} ${Ht}" role="img" aria-label="${SYMS[sym].label} ${TFS[tf].label}봉 실시간 차트">`;
+  s += `<defs><clipPath id="plotclip"><rect x="${Lp}" y="${T}" width="${Wd - R - Lp}" height="${PH}"/></clipPath></defs>`;
+  const st = niceStep(hi - lo, 4);
+  for (let v = Math.ceil(lo / st) * st; v <= hi; v += st) s += `<line class="grid" x1="${Lp}" x2="${Wd - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${Wd - R + 4}" y="${y(v) + 3}">${esc(fmtP(sym, v).replace(/\.\d+$/, m => st >= 1 ? '' : m))}</text>`;
+  const xr = Lp + band * cs.length;
+  s += `<rect x="${xr}" y="${T}" width="${Wd - R - xr}" height="${PH + G + VH}" fill="var(--fill)" opacity=".6"/>`;
+  cs.forEach((k, i) => {
+    const up = k.c >= k.o, col = up ? 'var(--up)' : 'var(--down)';
+    s += `<line x1="${x(i)}" x2="${x(i)}" y1="${y(k.h)}" y2="${y(k.l)}" stroke="${col}" stroke-width="1"/>`;
+    s += `<rect x="${x(i) - bw / 2}" y="${y(Math.max(k.o, k.c))}" width="${bw}" height="${Math.max(1, Math.abs(y(k.o) - y(k.c)))}" fill="${col}"/>`;
+    const vh = k.v / vmax * VH; s += `<rect x="${x(i) - bw / 2}" y="${top2 + VH - vh}" width="${bw}" height="${Math.max(0.5, vh)}" fill="${col}" opacity=".45"/>`;
+    s += `<rect x="${Lp + band * i}" y="${T}" width="${band}" height="${PH + G + VH}" fill="transparent" data-tip="${esc(`${mdhm(k.t)}\n시 ${fmtP(sym, k.o)} · 고 ${fmtP(sym, k.h)}\n저 ${fmtP(sym, k.l)} · 종 ${fmtP(sym, k.c)}`)}"/>`;
+  });
+  em.forEach((vals, j) => { s += `<polyline points="${vals.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ')}" fill="none" stroke="${EMAS[j].c}" stroke-width="1.2" clip-path="url(#plotclip)"/>`; });
+  if (pend) {
+    const ye = y(pend.entry), x0 = xt(pend.t0), x1 = Math.min(Wd - R, xt(pend.expiry));
+    s += `<line x1="${Lp}" x2="${Wd - R}" y1="${ye}" y2="${ye}" stroke="var(--ink)" stroke-width="1" opacity=".7"/>`;
+    if (x0 >= Lp) s += `<line x1="${x0}" x2="${x0}" y1="${T}" y2="${T + PH + G + VH}" stroke="var(--ink2)" stroke-width="1"/>`;
+    s += `<line x1="${x1}" x2="${x1}" y1="${T}" y2="${T + PH + G + VH}" stroke="var(--ink2)" stroke-width="1" stroke-dasharray="3 3"/><text class="strong" x="${x1 - 3}" y="${T + 10}" text-anchor="end">만기</text>`;
+  }
+  const lc = M.price != null ? M.price : cs[cs.length - 1].c, yl = y(lc);
+  s += `<line x1="${Lp}" x2="${Wd - R}" y1="${yl}" y2="${yl}" stroke="var(--ink2)" stroke-width="1" stroke-dasharray="3 3"/>`;
+  if (pend) { const ye = y(pend.entry); s += `<rect x="${Wd - R + 1}" y="${ye - 8}" width="${R - 2}" height="16" rx="3" fill="var(--ink)"/><text x="${Wd - R + 4}" y="${ye + 3.5}" style="fill:var(--card)">${esc(fmtP(sym, pend.entry).replace(/\.\d+$/, ''))}</text>`; }
+  if (!pend || Math.abs(yl - y(pend.entry)) > 16) s += `<rect x="${Wd - R + 1}" y="${yl - 8}" width="${R - 2}" height="16" rx="3" fill="var(--card)" stroke="var(--ink2)"/><text x="${Wd - R + 4}" y="${yl + 3.5}" class="strong">${esc(fmtP(sym, lc).replace(/\.\d+$/, ''))}</text>`;
+  s += `<circle cx="${x(cs.length - 1)}" cy="${yl}" r="4" fill="var(--ink)" stroke="var(--card)" stroke-width="2"/>`;
+  s += `<text x="${Lp}" y="${Ht - 3}">${esc(tf === '1h' ? mdhm(cs[0].t) : hm(cs[0].t))}</text><text class="strong" x="${x(cs.length - 1)}" y="${Ht - 3}" text-anchor="end">지금</text>`;
+  return s + '</svg>';
+}
+let drawTimer = null;
+function scheduleDraw() { if (!drawTimer) drawTimer = setTimeout(() => { drawTimer = null; drawLive(); }, 300); }
+function drawLive() {
+  const box = $('#chartBox'); if (box) box.innerHTML = liveChart(VTF);
+  const pb = $('#priceBox'); if (pb && M.price != null) pb.innerHTML = priceHtml();
+  const pi = $('#pendInfo'); if (pi) pi.innerHTML = pendHtml();
+}
+function priceHtml() {
+  const h1 = M.hist['1h'], ref = h1 && h1.length > 24 ? h1[h1.length - 25].c : null;
+  return `<b>${esc(fmtP(M.sym, M.price))}</b><span class="cap">24시간 ${chg(ref ? M.price / ref - 1 : null)}</span>`;
+}
+
+/* ---------- 결과 정산 ---------- */
+let settling = false;
+async function settleIfDue() {
+  const p = ST.pending; if (!p || settling || Date.now() < p.expiry + 1500) return;
+  settling = true;
+  try {
+    const r = await fetch(`${API}/aggTrades?symbol=${p.sym}&startTime=${p.expiry}&limit=1`);
+    const d = await r.json();
+    if (!Array.isArray(d) || !d.length) return;   // 아직 체결이 안 잡혔으면 다음에 다시
+    const exitP = +d[0].p, mv = exitP - p.entry;
+    const result = mv === 0 ? 'tie' : (mv > 0) === (p.dir === 'up') ? 'win' : 'loss';
+    const pnl = result === 'win' ? Math.round(p.stake * p.payout * 100) / 100 : result === 'loss' ? -p.stake : 0;
+    const tr = { id:p.id, t:new Date(p.t0).toISOString(), sym:p.sym, hz:p.hz, T:p.t0, entry:p.entry, expiry:exitP, dir:p.dir, reason:p.reason, conf:p.conf, result, pnl, stake:p.stake, live:true };
+    const k = keyOf(new Date(p.t0));
+    editDay(k, dd => { dd.trades = dd.trades || []; if (!dd.trades.some(x => x.id === tr.id)) dd.trades.push(tr); if (result === 'loss') dd.cooldownUntil = Date.now() + rules().cooldown * 60000; });
+    ST.pending = null; ST.last = tr; save(); render();
+  } catch (e) {} finally { settling = false; }
+}
+
+/* ---------- 문지기 ---------- */
+function gate() {
+  const r = rules(), d = day(today());
+  if (ST.pending) return { kind:'pending' };
+  if (ST.last) return { kind:'result' };
+  const pnl = sum(d.trades.map(t => t.pnl));
+  if (d.lock) return { kind:'locked', reason:d.lock.reason };
+  if (d.trades.length >= r.cap) return { kind:'locked', reason:'cap' };
+  if (pnl <= -r.lossStop * r.stake) return { kind:'locked', reason:'loss' };
+  if (pnl >= r.profitStop * r.stake) return { kind:'locked', reason:'profit' };
+  if (d.cooldownUntil && Date.now() < d.cooldownUntil) return { kind:'cooldown', until:d.cooldownUntil };
+  if (!d.check) return { kind:'checkin' };
+  if (d.check.recheckAfter) return Date.now() < d.check.recheckAfter ? { kind:'wait', until:d.check.recheckAfter } : { kind:'checkin', recheck:true };
+  return { kind:'open' };
+}
+const LOCK_TEXT = {
+  flags:['오늘은 끝', '빨간불이 2개 이상이었어요. 오늘은 쉬고 내일 다시 봐요.'],
+  cap:['오늘 횟수를 다 썼어요', '차트를 계속 보고 있으면 실전 앱을 열고 싶어질 수 있어요. 오늘은 앱을 닫아요.'],
+  loss:['하루 손실 한도', '실전이라면 여기서 멈추고 7일 잠금이에요. 메꾸고 싶은 마음이 바로 빨간불이에요.'],
+  profit:['이긴 날은 여기서 멈춰요', '내 기록에서 최악의 손실은 큰 이익 직후에 나왔어요. 이기고 있을 때 멈추는 것도 훈련이에요.']
+};
+let X = null, DRAFT = lsGet('live.draft') || { reason:'', conf:60 };
+function autoFlags(x) { const f = [], h = new Date().getHours(); if (x.mood >= 3 || x.attention) f.push(2); if (x.sleep != null && x.sleep <= 5) f.push(3); if (h >= 23 || h < 5) f.push(4); return f; }
+function flagSet(x) { return Array.from(new Set(x.flags.concat(autoFlags(x)))).sort((a, b) => a - b); }
+
+/* ---------- 화면: 실시간 ---------- */
+function vTrain() {
+  const r = rules(), d = day(today()), g = gate();
+  const pnl = sum(d.trades.map(t => t.pnl)), dec = d.trades.filter(t => t.result !== 'tie'), wins = dec.filter(t => t.result === 'win').length;
+  let body = '';
+  if (g.kind === 'locked') { const [hh, t] = LOCK_TEXT[g.reason] || LOCK_TEXT.flags; body = `<section class="card"><span class="cap">오늘 잠금</span><h2 style="font-size:22px">${hh}</h2><p class="sub">${t}</p></section>`; }
+  else if (g.kind === 'cooldown') body = `<section class="card"><span class="cap">진 뒤 쉬는 시간</span><h2 style="font-size:22px">${r.cooldown}분 쉬어요</h2><p class="sub">진 직후 바로 다시 거는 게 내 기록의 가장 큰 약점이었어요. 화면을 끄고 일어나 운동이나 산책을 하세요.</p><span class="big" data-until="${g.until}">${clock(g.until - Date.now())}</span></section>`;
+  else if (g.kind === 'wait') body = `<section class="card"><span class="cap">빨간불 1개</span><h2 style="font-size:22px">30분 운동하고 다시 점검해요</h2><span class="big" data-until="${g.until}">${clock(g.until - Date.now())}</span></section>`;
+  else if (g.kind === 'checkin') body = vCheck(g.recheck);
+  else if (g.kind === 'pending') body = vMarket() + `<section class="card"><div class="chead"><h2>결과 기다리는 중</h2><span class="cap">내 선택: ${ST.pending.dir === 'up' ? '오른다' : '내린다'}</span></div><div id="pendInfo" style="display:grid;gap:10px">${pendHtml()}</div><p class="hint">앱을 닫아도 돼요. 다시 열면 만기 시점 가격으로 결과를 매겨요.</p></section>`;
+  else if (g.kind === 'result') body = vResult();
+  else body = vMarket() + vDecide();
+  return `
+  <div class="head"><h1>실시간</h1><p>바이낸스 선물 실시간 시세 · 모의 연습이라 실제 돈은 오가지 않아요</p></div>
+  <section class="card"><div class="nums">
+    <div><b>${d.trades.length}<small style="font-size:14px;color:var(--ink3)">/${r.cap}</small></b><span>오늘 횟수</span></div>
+    <div><b>${sgn(pnl)}</b><span>오늘 손익</span></div>
+    <div><b>${dec.length ? pct(wins / dec.length) : '—'}</b><span>오늘 적중</span></div>
+    <div><b>${d.urges.length}</b><span>실전 충동</span></div>
+  </div></section>
+  ${body}
+  <section class="card"><div class="chead"><h2>실전 앱을 열고 싶어졌나요</h2></div>
+    <input type="text" id="urgeText" placeholder="그때 든 생각을 한 줄로 (선택)">
+    <button class="btn sec" data-act="urge">충동 기록하기</button>
+    <p class="hint">기록한 순간 이미 한 번 멈춘 거예요. 기록은 Event로 보낼 때 같이 가요.</p>
+  </section>
+  <p class="hint" style="padding:0 4px">하루 ${r.cap}회 · 1회 ${r.stake} USDT 고정 · 진 뒤 ${r.cooldown}분 쉬기 · 하루 −${r.lossStop * r.stake}이나 +${r.profitStop * r.stake}이면 끝 · 빨간불 2개면 끝 · 한 번에 하나만</p>`;
+}
+function vMarket() {
+  const pend = ST.pending;
+  return `<section class="card" style="gap:10px">
+    ${pend ? `<div class="chead"><h2>${SYMS[pend.sym].label} · ${HZ[pend.hz].label}</h2><span class="cap">${hm(pend.t0)} 진입</span></div>` : `
+    <div class="seg" role="group" aria-label="종목">${Object.entries(SYMS).map(([s, o]) => `<button data-act="sym" data-v="${s}" aria-pressed="${SEL.sym === s}">${o.label}</button>`).join('')}</div>`}
+    <div class="price" id="priceBox">${M.price != null ? priceHtml() : '<span class="cap">시세를 불러오는 중…</span>'}</div>
+    <div class="seg" role="group" aria-label="봉 간격">${Object.entries(TFS).map(([k, o]) => `<button data-act="tf" data-v="${k}" aria-pressed="${VTF === k}">${o.label}</button>`).join('')}</div>
+    <div id="chartBox">${liveChart(VTF)}</div>
+    <div class="legend">${EMAS.map(e => `<span><i style="background:${e.c}"></i>EMA ${e.n}</span>`).join('')}</div>
+  </section>`;
+}
+function vDecide() {
+  const r = rules(), ok = DRAFT.reason.trim().length >= 2;
+  return `<section class="card">
+    <div class="fld"><span class="lab">기간</span><div class="seg">${Object.entries(HZ).map(([h, o]) => `<button data-act="hz" data-v="${h}" aria-pressed="${SEL.hz === h}">${o.label}</button>`).join('')}</div></div>
+    <label class="fld"><span class="lab">내 판단 기준</span><textarea id="p-reason" placeholder="무엇을 보고 이렇게 판단했는지 내 말로 적어요" data-d="reason">${esc(DRAFT.reason)}</textarea></label>
+    <div class="fld"><div class="lr"><span class="lab">맞을 확률 (내 느낌)</span><b id="confv">${DRAFT.conf}%</b></div><input type="range" min="50" max="95" step="5" value="${DRAFT.conf}" data-d="conf" data-out="confv" data-suffix="%" aria-label="맞을 확률"></div>
+    <div class="dirs"><button class="dir up" data-act="answer" data-v="up" ${ok && M.price != null ? '' : 'disabled'}>오른다</button><button class="dir down" data-act="answer" data-v="down" ${ok && M.price != null ? '' : 'disabled'}>내린다</button></div>
+    <p class="hint" id="reasonHint">${ok ? `지금 가격으로 진입하고, ${HZ[SEL.hz].label} 뒤 가격으로 결과를 매겨요. 맞히면 +${Math.round(r.stake * r.payout * 100) / 100}, 틀리면 −${r.stake} USDT.` : '판단 기준을 적어야 버튼이 켜져요.'}</p>
+  </section>`;
+}
+function pendHtml() {
+  const p = ST.pending; if (!p) return '';
+  const total = p.expiry - p.t0, left = p.expiry - Date.now(), f = clamp(1 - left / total, 0, 1);
+  const now = M.sym === p.sym ? M.price : null;
+  return `<div class="lr"><span class="cap">남은 시간</span><b>${left > 0 ? clock(left) : '결과 매기는 중'}</b></div>
+    <div class="prog"><span style="width:${(f * 100).toFixed(1)}%"></span></div>
+    <div class="kv"><span>진입 가격</span><b>${esc(fmtP(p.sym, p.entry))}</b></div>
+    <div class="kv"><span>지금 가격</span><b>${now != null ? `${esc(fmtP(p.sym, now))} <span class="cap">${chg(now / p.entry - 1)}</span>` : '—'}</b></div>`;
+}
+function vResult() {
+  const t = ST.last, r = rules();
+  const txt = t.result === 'tie' ? '무효 · 같은 가격' : `${t.result === 'win' ? '맞음' : '틀림'} · ${sgn(t.pnl)} USDT`;
+  return `<section class="card"><span class="cap">결과</span><span class="big" style="font-size:28px">${txt}</span>
+    <div>
+      <div class="kv"><span>가격</span><b>${esc(fmtP(t.sym, t.entry))} → ${esc(fmtP(t.sym, t.expiry))}</b></div>
+      <div class="kv"><span>변화</span><b>${chg(t.expiry / t.entry - 1)}</b></div>
+      <div class="kv"><span>내 선택</span><b>${t.dir === 'up' ? '오른다' : '내린다'} · ${t.conf}%</b></div>
+      <div class="kv"><span>기간</span><b>${HZ[t.hz].label} · ${hm(t.T)} 진입</b></div>
+    </div>
+    <div style="background:var(--fill);border-radius:14px;padding:12px 14px"><span class="cap">내 판단 기준</span><p class="sub">${esc(t.reason)}</p></div>
+    ${t.result === 'loss' ? `<p class="hint">이제 ${r.cooldown}분 쉬어요.</p>` : ''}
+    <button class="btn" data-act="next">${t.result === 'loss' ? '쉬는 시간으로' : '확인'}</button></section>`;
+}
+function vCheck(recheck) {
+  if (!X || X.rules) X = { sleep:null, mood:0, impulse:3, attention:false, exercise:false, flags:[] };
+  const fs = flagSet(X), n = fs.length, af = autoFlags(X);
+  const yn = (f, label) => `<div class="fld"><span class="lab">${label}</span><div class="seg">${[['no', '아니오'], ['yes', '예']].map(([v, t]) => `<button data-act="xset" data-f="${f}" data-v="${v}" aria-pressed="${(X[f] ? 'yes' : 'no') === v}">${t}</button>`).join('')}</div></div>`;
+  return `<section class="card"><div class="chead"><h2>${recheck ? '다시 점검해요' : '시작 전 점검'}</h2><span class="cap">30초</span></div>
+    <label class="fld"><span class="lab">어젯밤 잠 (시간)</span><input type="number" inputmode="decimal" step="0.5" min="0" max="16" id="x-sleep" value="${X.sleep == null ? '' : X.sleep}" placeholder="예: 6.5" data-x="sleep" data-rerender="1"></label>
+    <div class="fld"><div class="lr"><span class="lab">기분 (−5 ~ +5)</span><b id="xo-mood">${X.mood > 0 ? '+' + X.mood : X.mood}</b></div><input type="range" min="-5" max="5" value="${X.mood}" data-x="mood" data-out="xo-mood" data-plus="1" data-rerender="1" aria-label="기분"></div>
+    <div class="fld"><div class="lr"><span class="lab">충동 (0 ~ 10)</span><b id="xo-impulse">${X.impulse}</b></div><input type="range" min="0" max="10" value="${X.impulse}" data-x="impulse" data-out="xo-impulse" aria-label="충동"></div>
+    <div class="two">${yn('attention', '오늘 관심·인정을 크게 받았나')}${yn('exercise', '오늘 운동했나')}</div>
+    <div class="fld"><span class="lab">빨간불</span>
+      ${RED_FLAGS.map((f, i) => { const on = fs.includes(i), auto = af.includes(i); return `<button class="flag" data-act="xflag" data-i="${i}" ${f.na || auto ? 'disabled' : ''} aria-pressed="${on}"><span class="check ${on ? 'on' : ''}" aria-hidden="true">${on ? SVG_CHECK : ''}</span><span>${esc(f.t)}${auto ? '<span class="tag">자동</span>' : ''}${f.na ? '<span class="tag">앱이 막아요</span>' : ''}</span></button>`; }).join('')}
+    </div>
+    <p class="verdict ${n >= 2 ? 'stop' : n === 1 ? 'wait' : ''}">${n >= 2 ? '<b>빨간불 2개 이상.</b> 점검을 마치면 오늘은 잠겨요.' : n === 1 ? '<b>빨간불 1개.</b> 점검을 마치면 30분 쉰 뒤 다시 점검해요.' : '빨간불이 없어요. 점검을 마치면 시작할 수 있어요.'}</p>
+    <button class="btn" data-act="checkdone">점검 마치기</button>
+  </section>`;
+}
+
+/* ---------- 화면: 기록 ---------- */
+function exportCode() {
+  const keys = Object.keys(ST.days).sort().slice(-90), days = {};
+  keys.forEach(k => { const d = ST.days[k]; days[k] = { trades:d.trades || [], urges:d.urges || [], check:d.check || null }; });
+  return 'EVENTLIVE1:' + JSON.stringify({ v:1, exported:iso(), days });
+}
+function vLog() {
+  const r = rules(), be = 1 / (1 + (+r.payout || 0.8)), ts = allTrades(), dec = ts.filter(t => t.result !== 'tie');
+  const N = dec.length, Wn = dec.filter(t => t.result === 'win').length, p = N ? Wn / N : null, cum = sum(ts.map(t => t.pnl));
+  const urges = sum(Object.values(ST.days).map(d => (d.urges || []).length));
+  const lo = 0.2, hi = 0.9, Xp = v => clamp((v - lo) / (hi - lo) * 100, 0, 100), ci = N ? wilson(Wn, N) : null;
+  return `
+  <div class="head"><h1>기록</h1><p>이 기기에 저장돼요. Event로 보내면 한곳에서 분석해요</p></div>
+  <section class="card" style="gap:10px"><h2>Event로 보내기</h2>
+    <p class="sub">버튼을 누르면 기록이 복사되고 Event가 열려요. Event의 기록 탭에서 "실시간 기록 붙여넣기" 칸에 붙여넣으면 끝이에요.</p>
+    <button class="btn" data-act="export">기록 복사하고 Event 열기</button>
+    <a class="btn sec" href="${EVENT_URL}" target="_blank" rel="noopener">Event가 안 열리면 여기를 눌러요</a>
+    <textarea id="exportBox" hidden readonly aria-label="복사할 기록"></textarea>
+  </section>
+  <section class="card"><div class="nums">
+    <div><b>${N}</b><span>판정된 예측</span></div>
+    <div><b>${pct1(p)}</b><span>승률</span></div>
+    <div><b>${sgn(cum)}</b><span>누적 손익</span></div>
+    <div><b>${urges}</b><span>실전 충동</span></div>
+  </div>
+  ${N ? `<div class="cibar"><div class="track"><span class="range" style="left:${Xp(ci[0])}%;width:${Math.max(1, Xp(ci[1]) - Xp(ci[0]))}%"></span><span class="be" style="left:${Xp(be)}%"></span><span class="pt" style="left:${Xp(p)}%"></span></div><div class="ticks"><span style="left:0">20%</span><span style="left:${Xp(be)}%;transform:translateX(-50%)">손익분기</span><span style="right:0">90%</span></div></div>
+  <p class="hint">실력은 ${pct1(ci[0])} ~ ${pct1(ci[1])} 사이 어딘가예요. 손익분기 ${pct1(be)}.</p>` : ''}
+  </section>
+  <section class="card"><h2>최근 예측</h2>
+    ${ts.length ? `<div class="list">${ts.slice(-12).reverse().map(t => `<div class="item"><span class="grow"><span class="t">${SYMS[t.sym].label} ${HZ[t.hz].label} · ${t.dir === 'up' ? '오른다' : '내린다'} · ${t.result === 'win' ? '맞음' : t.result === 'loss' ? '틀림' : '무효'}</span><span class="s">${esc(mdhm(t.T))} · ${esc(t.reason)}</span></span><b>${sgn(t.pnl)}</b></div>`).join('')}</div>` : '<p class="hint">아직 기록이 없어요.</p>'}
+  </section>`;
+}
+
+/* ---------- 화면: 규칙 ---------- */
+function vRules() {
+  const r = rules(), pend = ST.rules && ST.rules.pending, keys = Object.keys(RULE_LABEL);
+  if (!X || !X.rules) X = { rules:Object.fromEntries(keys.map(k => [k, r[k]])) };
+  return `
+  <div class="head"><h1>규칙</h1><p>차분할 때 정하고, 충동이 올 때는 바꾸지 않아요</p></div>
+  <div class="banner"><b>바꾸면 72시간 뒤에 적용돼요</b><p>그 사이 마음이 바뀌면 취소하면 돼요.</p></div>
+  ${pend ? `<section class="card"><div class="chead"><h2>예약된 변경</h2><span class="cap"><span data-until="${pend.eff}" data-dur="1">${durTxt(pend.eff - Date.now())}</span> 뒤 적용</span></div>
+    ${Object.entries(pend.changes).map(([k, v]) => `<div class="kv"><span>${esc(RULE_LABEL[k] || k)}</span><b>${esc(r[k])} → ${esc(v)}</b></div>`).join('')}
+    <button class="btn sec" data-act="cancelpend">변경 취소</button></section>` : ''}
+  <section class="card"><h2>안전장치</h2>
+    <div>${keys.map(k => `<label class="rulein"><span>${RULE_LABEL[k]}</span><input type="number" step="${k === 'payout' ? '0.01' : '1'}" id="r-${k}" value="${X.rules[k]}" data-rk="${k}"></label>`).join('')}</div>
+    <button class="btn" data-act="reqchange" ${pend ? 'disabled' : ''}>${pend ? '예약된 변경이 있어요' : '72시간 뒤 적용으로 예약'}</button>
+  </section>
+  <section class="card"><h2>시세와 정산</h2>
+    <p class="sub">바이낸스 USDⓈ-M 선물 실시간 시세예요. 진입 가격은 버튼을 누른 순간의 가격, 결과는 만기 시각 직후 첫 체결 가격으로 매겨요.</p>
+    <p class="hint">기록은 이 기기의 브라우저에만 저장돼요. 브라우저 데이터를 지우면 함께 지워지니, 가끔 Event로 보내 두세요.</p>
+  </section>
+  <section class="card"><p class="sub">충동이 너무 강하면 휴대폰을 내려놓고 운동하고, 믿을 만한 사람에게 연락하세요.</p><p class="hint">도박·베팅 충동 상담: 한국도박문제예방치유원 1336 (24시간, 무료)</p>
+    <div class="two"><a class="btn sec" href="${EVENT_URL}" target="_blank" rel="noopener">Event</a><a class="btn sec" href="${OBS_URL}" target="_blank" rel="noopener">자기 관측소</a></div></section>`;
+}
+
+/* ---------- 동작 ---------- */
+let tab = 'train';
+const ACT = {
+  tab: el => { tab = el.dataset.tab; X = null; render(); scrollTo(0, 0); },
+  sym: el => { SEL.sym = el.dataset.v; lsSet('live.sel', SEL); startMarket(SEL.sym); render(); },
+  hz: el => { SEL.hz = el.dataset.v; lsSet('live.sel', SEL); render(); },
+  tf: el => { VTF = el.dataset.v; lsSet('live.tf', VTF); document.querySelectorAll('[data-act=tf]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === VTF))); drawLive(); },
+  xset: el => { X[el.dataset.f] = el.dataset.v === 'yes'; render(); },
+  xflag: el => { const i = +el.dataset.i, j = X.flags.indexOf(i); j >= 0 ? X.flags.splice(j, 1) : X.flags.push(i); render(); },
+  checkdone: () => {
+    const fs = flagSet(X), n = fs.length, prev = day(today()).check;
+    editDay(today(), d => {
+      d.check = { sleep:X.sleep, mood:X.mood, impulse:X.impulse, attention:X.attention, exercise:X.exercise, flags:fs, t:iso(), round:(prev && prev.round || 0) + 1, recheckAfter: n === 1 ? Date.now() + 30 * 60000 : null };
+      if (n >= 2) d.lock = { reason:'flags', t:iso(), flags:fs };
+    });
+    X = null; render(); toast(n >= 2 ? '오늘은 쉬는 날로 기록했어요' : n === 1 ? '30분 뒤에 다시 점검해요' : '점검을 마쳤어요');
+  },
+  answer: el => {
+    if (ST.pending || gate().kind !== 'open' || M.price == null || DRAFT.reason.trim().length < 2) return;
+    const r = rules(), now = Date.now();
+    ST.pending = { id:uid(), sym:M.sym, hz:SEL.hz, t0:now, entry:M.price, expiry:now + HZ[SEL.hz].ms, dir:el.dataset.v, reason:DRAFT.reason.trim(), conf:DRAFT.conf, stake:r.stake, payout:r.payout };
+    DRAFT = { reason:'', conf:60 }; lsSet('live.draft', DRAFT); save(); render(); scrollTo(0, 0);
+  },
+  next: () => { ST.last = null; save(); render(); scrollTo(0, 0); },
+  urge: () => { const inp = $('#urgeText'), th = inp ? inp.value.trim() : ''; editDay(today(), d => { d.urges = d.urges || []; d.urges.push({ id:uid(), t:iso(), thought:th, sym:M.sym, price:M.price }); }); render(); toast('기록했어요. 이미 한 번 멈춘 거예요.'); },
+  export: () => {
+    const code = exportCode(), box = $('#exportBox');
+    const fallback = () => { box.hidden = false; box.value = code; box.focus(); box.select(); toast('자동 복사가 안 됐어요. 선택된 글을 길게 눌러 복사하세요.'); };
+    try {
+      navigator.clipboard.writeText(code).then(() => { toast('복사했어요. Event 기록 탭에 붙여넣으세요.'); window.open(EVENT_URL, '_blank'); }, fallback);
+    } catch (e) { fallback(); }
+  },
+  reqchange: () => {
+    const r = rules(), changes = {};
+    Object.keys(RULE_LABEL).forEach(k => { const v = +X.rules[k]; if (isFinite(v) && v !== r[k]) changes[k] = v; });
+    if (changes.cap != null && changes.cap < 1) return toast('하루 최대 횟수는 1 이상이어야 해요');
+    if (changes.stake != null && changes.stake <= 0) return toast('1회 금액은 0보다 커야 해요');
+    if (!Object.keys(changes).length) return toast('바뀐 값이 없어요');
+    ST.rules = ST.rules || {}; ST.rules.pending = { changes, at:iso(), eff:Date.now() + 72 * 3600000 }; save(); X = null; render(); toast('72시간 뒤에 적용돼요');
+  },
+  cancelpend: () => { if (ST.rules) delete ST.rules.pending; save(); X = null; render(); toast('변경을 취소했어요'); }
+};
+document.addEventListener('click', e => { const el = e.target.closest('[data-act]'); if (!el || el.disabled) return; const f = ACT[el.dataset.act]; if (f) { e.preventDefault(); f(el, e); } });
+document.addEventListener('input', e => {
+  const el = e.target;
+  if (el.dataset.out) { const o = document.getElementById(el.dataset.out); if (o) o.textContent = (el.dataset.plus && +el.value > 0 ? '+' : '') + el.value + (el.dataset.suffix || ''); }
+  if (el.dataset.x != null && X) { const f = el.dataset.x; X[f] = el.type === 'number' ? (el.value === '' ? null : +el.value) : +el.value; }
+  else if (el.dataset.d) {
+    const f = el.dataset.d; DRAFT[f] = f === 'reason' ? el.value : +el.value; lsSet('live.draft', DRAFT);
+    if (f === 'reason') { const ok = el.value.trim().length >= 2; document.querySelectorAll('[data-act=answer]').forEach(b => { b.disabled = !ok || M.price == null; }); const h = $('#reasonHint'); if (h && !ok) h.textContent = '판단 기준을 적어야 버튼이 켜져요.'; else if (h) h.textContent = '지금 가격으로 진입하고, 기간이 지난 뒤 가격으로 결과를 매겨요.'; }
+  }
+  else if (el.dataset.rk && X && X.rules) X.rules[el.dataset.rk] = el.value;
+});
+document.addEventListener('change', e => { if (e.target.dataset.rerender) render(); });
+
+/* 툴팁 · 토스트 */
+const tip = $('#tip');
+function showTip(t, e) { tip.textContent = t.getAttribute('data-tip'); tip.hidden = false; const r = tip.getBoundingClientRect(); let x = e.clientX + 12, y = e.clientY - r.height - 12; if (x + r.width > innerWidth - 8) x = e.clientX - r.width - 12; if (x < 8) x = 8; if (y < 8) y = e.clientY + 16; tip.style.left = x + 'px'; tip.style.top = y + 'px'; }
+document.addEventListener('pointermove', e => { const t = e.target.closest && e.target.closest('[data-tip]'); if (t) showTip(t, e); else if (!tip.hidden && e.pointerType === 'mouse') tip.hidden = true; });
+document.addEventListener('pointerdown', e => { const t = e.target.closest && e.target.closest('[data-tip]'); if (t) showTip(t, e); else tip.hidden = true; });
+addEventListener('scroll', () => { tip.hidden = true; }, { passive:true });
+let toastT;
+function toast(m) { const t = $('#toast'); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 2800); }
+
+/* ---------- 그리기 ---------- */
+const view = $('#view');
+let lastGate = '';
+const typing = () => { const a = document.activeElement; return a && view.contains(a) && /^(INPUT|TEXTAREA)$/.test(a.tagName) && a.type !== 'range'; };
+function render() {
+  document.querySelectorAll('nav.tabs button').forEach(b => { if (b.dataset.tab === tab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+  view.innerHTML = tab === 'log' ? vLog() : tab === 'rules' ? vRules() : vTrain();
+  lastGate = gate().kind;
+}
+setInterval(() => {
+  document.querySelectorAll('[data-until]').forEach(el => { const u = +el.dataset.until; el.textContent = el.dataset.dur ? durTxt(u - Date.now()) : clock(u - Date.now()); });
+  const pi = $('#pendInfo'); if (pi) pi.innerHTML = pendHtml();
+  applyPending(); settleIfDue();
+  if (tab === 'train' && gate().kind !== lastGate && !typing()) render();
+}, 1000);
+
+/* ---------- 시작 ---------- */
+render();
+startMarket(ST.pending ? ST.pending.sym : SEL.sym);
+settleIfDue();
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+</script>
+</body>
+</html>
